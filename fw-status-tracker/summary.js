@@ -908,10 +908,10 @@ async function adminSetUser(id, is_active, is_admin) {
 }
 
 async function adminResetPassword(id) {
-  const password = window.prompt('Enter a new password with at least 14 characters.');
+  const password = window.prompt('Enter a new password with at least 8 characters.');
   if (password === null) return;
-  if (password.length < 14) {
-    showSummaryToast('Password must contain at least 14 characters.');
+  if (password.length < 8) {
+    showSummaryToast('Password must contain at least 8 characters.');
     return;
   }
   try {

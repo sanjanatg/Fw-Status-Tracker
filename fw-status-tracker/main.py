@@ -149,12 +149,12 @@ def initialize_database(bootstrap_admin: tuple[str, str] | None = None) -> None:
                 if (
                     not username
                     or username.startswith("CHANGE_ME")
-                    or len(password) < 14
+                    or len(password) < 8
                     or password.startswith("CHANGE_ME")
                 ):
                     raise BootstrapAdminRequired(
                         "No users exist. Set TRACKER_BOOTSTRAP_ADMIN_USERNAME and "
-                        "TRACKER_BOOTSTRAP_ADMIN_PASSWORD (a unique value of at least 14 characters) "
+                        "TRACKER_BOOTSTRAP_ADMIN_PASSWORD (a unique value of at least 8 characters) "
                         "for the initial administrator, or start main.py in an interactive terminal "
                         "to create one."
                     )
@@ -483,8 +483,8 @@ def users() -> Any:
     password = payload.get("password")
     if not isinstance(username, str) or not 1 <= len(username.strip()) <= 80:
         return jsonify(error="Username must contain 1 to 80 characters."), 400
-    if not isinstance(password, str) or not 14 <= len(password) <= 256:
-        return jsonify(error="Password must contain 14 to 256 characters."), 400
+    if not isinstance(password, str) or not 8 <= len(password) <= 256:
+        return jsonify(error="Password must contain 8 to 256 characters."), 400
     if not isinstance(payload.get("is_admin", False), bool):
         return jsonify(error="is_admin must be a boolean."), 400
     try:
@@ -547,8 +547,8 @@ def update_user(user_id: int) -> Any:
 def reset_user_password(user_id: int) -> Any:
     payload = request.get_json(silent=True)
     password = payload.get("password") if isinstance(payload, dict) else None
-    if not isinstance(password, str) or not 14 <= len(password) <= 256:
-        return jsonify(error="Password must contain 14 to 256 characters."), 400
+    if not isinstance(password, str) or not 8 <= len(password) <= 256:
+        return jsonify(error="Password must contain 8 to 256 characters."), 400
     with connect_db() as db:
         cursor = db.execute(
             "UPDATE users SET password_hash = ? WHERE id = ?",
@@ -611,12 +611,12 @@ def open_browser(url: str) -> None:
 def prompt_for_bootstrap_admin() -> tuple[str, str]:
     print("First-run setup: create the initial tracker administrator.")
     username = input("Administrator username: ").strip()
-    password = getpass.getpass("Administrator password (at least 14 characters): ")
+    password = getpass.getpass("Administrator password (at least 8 characters): ")
     confirmation = getpass.getpass("Confirm administrator password: ")
     if not username or username.startswith("CHANGE_ME"):
         raise ValueError("Administrator username must not be empty or a placeholder.")
-    if len(password) < 14 or password.startswith("CHANGE_ME"):
-        raise ValueError("Administrator password must be at least 14 characters.")
+    if len(password) < 8 or password.startswith("CHANGE_ME"):
+        raise ValueError("Administrator password must be at least 8 characters.")
     if password != confirmation:
         raise ValueError("The passwords do not match.")
     return username, password

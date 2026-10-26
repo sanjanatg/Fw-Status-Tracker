@@ -64,7 +64,7 @@ class TrackerAppTests(unittest.TestCase):
             patch("builtins.input", return_value="first-admin"),
             patch(
                 "main.getpass.getpass",
-                side_effect=["a-secure-initial-password", "a-secure-initial-password"],
+                side_effect=["secure8!", "secure8!"],
             ),
             patch("main.serve") as serve,
         ):
@@ -147,9 +147,15 @@ class TrackerAppTests(unittest.TestCase):
 
     def test_admin_can_create_user_and_deactivate_them(self) -> None:
         token = self._login()
+        too_short = self.client.post(
+            "/api/users",
+            json={"username": "short-password-user", "password": "short7!"},
+            headers={"X-CSRF-Token": token},
+        )
+        self.assertEqual(too_short.status_code, 400)
         created = self.client.post(
             "/api/users",
-            json={"username": "team-user", "password": "another-secure-password"},
+            json={"username": "team-user", "password": "secure8!"},
             headers={"X-CSRF-Token": token},
         )
         self.assertEqual(created.status_code, 201)
@@ -160,6 +166,18 @@ class TrackerAppTests(unittest.TestCase):
             headers={"X-CSRF-Token": token},
         )
         self.assertEqual(updated.status_code, 200)
+        reset = self.client.put(
+            f"/api/users/{user_id}/password",
+            json={"password": "newpass8"},
+            headers={"X-CSRF-Token": token},
+        )
+        self.assertEqual(reset.status_code, 200)
+        too_short_reset = self.client.put(
+            f"/api/users/{user_id}/password",
+            json={"password": "short7!"},
+            headers={"X-CSRF-Token": token},
+        )
+        self.assertEqual(too_short_reset.status_code, 400)
         users = self.client.get("/api/users").json["users"]
         self.assertFalse(next(user for user in users if user["id"] == user_id)["is_active"])
 
@@ -183,14 +201,14 @@ class TrackerAppTests(unittest.TestCase):
         token = self._login()
         created = self.client.post(
             "/api/users",
-            json={"username": "team-user", "password": "another-secure-password"},
+            json={"username": "team-user", "password": "secure8!"},
             headers={"X-CSRF-Token": token},
         )
         self.assertEqual(created.status_code, 201)
         self.client.post("/api/logout", headers={"X-CSRF-Token": token})
         self.assertEqual(self.client.post(
             "/api/login",
-            json={"username": "team-user", "password": "another-secure-password"},
+            json={"username": "team-user", "password": "secure8!"},
             headers={"X-CSRF-Token": self._csrf()},
         ).status_code, 200)
         denied = self.client.get("/api/users")
