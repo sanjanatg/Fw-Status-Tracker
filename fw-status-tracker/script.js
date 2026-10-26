@@ -1,4 +1,3 @@
-const STORE_KEY = 'tw_tracker_v9';
 let rowSeq = 0; /* unique id seq for module rows across all entries */
 
 /* ── I-AUTHO-NUM: fixed 11-zero prefix + 5 manually entered digits = 16 chars total ── */
@@ -8,13 +7,10 @@ function buildAuthoNum(suffix) {
   return digits ? AUTHO_PREFIX + digits.padStart(5, '0') : '';
 }
 
-/* ── Storage ──
-   Stored shape: array of entry objects
-   { projectName, modules: [ {moduleName, fwDocs, moduleNumber, authoNumSuffix, authoNum, dvcReview, version, review, dateOfTesting, tcRelease}, ... ] }
-*/
-function loadAll() { try { return JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); } catch { return []; } }
-function saveAll(d) {
-  localStorage.setItem(STORE_KEY, JSON.stringify(d));
+/* The server owns persistent records; this is the initialized shared workspace. */
+function loadAll() { return window.trackerStore.entries; }
+async function saveAll(d) {
+  await window.trackerStore.saveEntries(d);
   if (typeof renderDashboard === 'function') renderDashboard();
 }
 
@@ -419,10 +415,7 @@ function toggleEntryCard(header) {
   chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
 }
 
-/* ── After a Save, the entered data must not stay visible on screen.
-   It is already safely written to localStorage (and stays available for
-   Download Excel) — this just wipes the on-screen form back to a single
-   blank entry so nobody can read the typed-in details off the screen. ── */
+/* Reset the visible form without changing the server-saved workspace. */
 function resetToBlank() {
   document.getElementById('entriesContainer').innerHTML = '';
   addEntry();
@@ -483,15 +476,20 @@ function renderEntries(entries) {
 }
 
 
-/* ── Delete entry (removes from form view only — permanent module data is kept) ── */
-function deleteEntry(btn) {
+/* ── Delete entry from the workspace; archived module history is retained server-side. ── */
+async function deleteEntry(btn) {
+  const previous = loadAll();
   const card = btn.closest('.entry-card');
   card.remove();
   renumberEntries();
-  // Save the remaining visible entries (does NOT wipe permanent module store)
   const remaining = getSavableCardData();
-  localStorage.setItem(STORE_KEY, JSON.stringify(remaining));
-  showToast('Entry removed from view. Module details permanently preserved.');
+  try {
+    await saveAll(remaining);
+    showToast('Entry removed from the workspace. Module history is retained.');
+  } catch (error) {
+    renderEntries(previous);
+    showToast('Could not delete entry: ' + error.message);
+  }
 }
 
 /* ── Select builder ── */
@@ -691,14 +689,18 @@ function getSavableCardData() {
 }
 
 
-function persistVisibleCards() {
-  saveAll(getSavableCardData());
+async function persistVisibleCards() {
+  try {
+    await saveAll(getSavableCardData());
+  } catch (error) {
+    showToast('Could not save the module change: ' + error.message);
+  }
 }
 
 /* ── Save a single entry (its own "Save" button) ──
    Persists a full snapshot of ALL entries in current display order, so Entry
    positions (and therefore sheet numbers on download) always stay consistent. */
-   function saveEntry(card) {
+   async function saveEntry(card) {
     const entry = getEntryData(card);
     if (!entry.projectName) { showToast('⚠ Add a Project Name for this entry first'); return; }
     if (!entry.modules.length || entry.modules.every(m => !m.moduleName)) {
@@ -730,17 +732,19 @@ function persistVisibleCards() {
     }
   
     const allData = getSavableCardData();
-    saveAll(allData);
-    syncToPermanentStore(allData);
-    const eid = card.dataset.eid;
-    const rowCount = entry.modules.length;
+    try {
+      await saveAll(allData);
+    } catch (error) {
+      showToast('Could not save entry: ' + error.message);
+      return;
+    }
     markSaved(card);
     renderDashboard();
     showToast('✓ Entry saved ');
   }
   
 
-  function saveData() {
+  async function saveData() {
     const entries = getSavableCardData();
     if (!entries.length) { showToast('⚠ Add at least one complete project first'); return; }
   
@@ -758,8 +762,12 @@ function persistVisibleCards() {
       }
     }
   
-    saveAll(entries);
-    syncToPermanentStore(entries);
+    try {
+      await saveAll(entries);
+    } catch (error) {
+      showToast('Could not save records: ' + error.message);
+      return;
+    }
     const count = entries.length;
     document.querySelectorAll('.entry-card').forEach(card => {
       if (getEntryData(card).projectName) markSaved(card);
@@ -770,45 +778,6 @@ function persistVisibleCards() {
   
 
 
-
-/* ── Sync to permanent module store (append-only, never deletes) ── */
-function syncToPermanentStore(entries) {
-  const PERM_KEY = 'tw_tracker_perm_modules';
-  let existing = [];
-  try { existing = JSON.parse(localStorage.getItem(PERM_KEY) || '[]'); } catch { existing = []; }
-
-  const newRows = entries.flatMap((entry, idx) =>
-    (entry.modules || []).map((m, mi) => ({
-      entryNum: idx + 1, moduleNum: mi + 1,
-      projectName: entry.projectName || '',
-      moduleName: m.moduleName || '',
-      fwDocs: m.fwDocs || '',
-      moduleNumber: m.moduleNumber || '',
-      authoNum: m.authoNum || buildAuthoNum(m.authoNumSuffix || ''),
-      dvcReview: m.dvcReview || '',
-      version: m.version || '', review: m.review || '',
-      dateOfTesting: m.dateOfTesting || '', tcRelease: m.tcRelease || '',
-      checkSum: m.checkSum || '',
-      size: m.size || ''
-    }))
-  );
-
-  const makeKey = r => [r.projectName, r.moduleName, r.version, r.fwDocs].join('||').toLowerCase();
-  const existingKeyMap = new Map(existing.map((r, i) => [makeKey(r), i]));
-
-  const merged = [...existing];
-  newRows.forEach(row => {
-    if (!row.moduleName) return;
-    const key = makeKey(row);
-    if (existingKeyMap.has(key)) {
-      merged[existingKeyMap.get(key)] = row; // update
-    } else {
-      merged.push(row); // append new
-    }
-  });
-
-  localStorage.setItem(PERM_KEY, JSON.stringify(merged));
-}
 
 /* ── Sheet-name sanitizer (Excel: max 31 chars, no \ / ? * [ ] :) ──
    Prefixed with the entry's position so Entry 1 -> Sheet 1, Entry 2 -> Sheet 2, etc.
@@ -934,7 +903,9 @@ function sheetRowsToEntries(rows) {
       version: importCell(row, map.version),
       review: importDateCell(row, map.review),
       dateOfTesting: importDateCell(row, map.dateOfTesting),
-      tcRelease: normalizeChoice(importCell(row, map.tcRelease))
+      tcRelease: normalizeChoice(importCell(row, map.tcRelease)),
+      checkSum: importCell(row, map.checkSum),
+      size: importCell(row, map.size)
     });
   });
 
@@ -963,7 +934,9 @@ function findImportHeader(rows) {
       version: findHeaderIndex(normalized, ['version', 'versions']),
       review: findHeaderIndex(normalized, ['dateofreview', 'reviewdate', 'review']),
       dateOfTesting: findHeaderIndex(normalized, ['dateoftesting', 'testingdate', 'testdate']),
-      tcRelease: findHeaderIndex(normalized, ['tcrelease', 'tcreleasestatus', 'tcstatus'])
+      tcRelease: findHeaderIndex(normalized, ['tcrelease', 'tcreleasestatus', 'tcstatus']),
+      checkSum: findHeaderIndex(normalized, ['checksum', 'md5', 'hash']),
+      size: findHeaderIndex(normalized, ['size', 'filesize', 'bytes'])
     };
 
     if (map.projectName > -1 && map.moduleName > -1) return { headerRowIndex: r, map };
@@ -1025,13 +998,18 @@ function escHtml(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-/* Init — load saved entries as collapsed cards; start blank if none */
-const savedEntries = loadAll();
-if (savedEntries.length) renderEntries(savedEntries);
-// else: leave container empty — user clicks "New Entry" to add
-renderDashboard();
+/* Load the shared server workspace before enabling tracker actions. */
+window.trackerStore.initialize().then(ready => {
+  if (!ready) return;
+  const savedEntries = loadAll();
+  if (savedEntries.length) renderEntries(savedEntries);
+  renderDashboard();
+});
 
-function doLogout() {
-  sessionStorage.removeItem('tw_auth_session');
-  window.location.href = 'login.html';
+async function doLogout() {
+  try {
+    await window.trackerStore.logout();
+  } catch (error) {
+    showToast('Could not safely sign out: ' + error.message);
+  }
 }

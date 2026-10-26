@@ -1,0 +1,42 @@
+services:
+  tracker:
+    build: .
+    restart: unless-stopped
+    environment:
+      TRACKER_SECRET_KEY: ${TRACKER_SECRET_KEY:-}
+      TRACKER_COOKIE_SECURE: "true"
+      TRACKER_BOOTSTRAP_ADMIN_USERNAME: ${TRACKER_BOOTSTRAP_ADMIN_USERNAME:-}
+      TRACKER_BOOTSTRAP_ADMIN_PASSWORD: ${TRACKER_BOOTSTRAP_ADMIN_PASSWORD:-}
+    volumes:
+      - tracker-data:/data
+    expose:
+      - "8000"
+    networks:
+      - tracker-internal
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      TRACKER_DOMAIN: ${TRACKER_DOMAIN:?Set TRACKER_DOMAIN to the public DNS name for this server}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - tracker-internal
+    depends_on:
+      tracker:
+        condition: service_healthy
+
+networks:
+  tracker-internal:
+
+volumes:
+  tracker-data:
+  caddy-data:
+  caddy-config:

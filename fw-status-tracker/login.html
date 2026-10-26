@@ -220,102 +220,54 @@
 </div>
 
 <script>
-  // ── Credentials (hashed via SHA-256 at runtime) ──
-  // Default: username = admin | password = TASL@2026
-  // To change: update the sha256('TASL@2026') call inside doLogin() below
-  const CREDENTIALS = [
-    { userHash: '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918', passHash: '3a5f6b2c1e4d7f8a9b0c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3' }
-    // userHash = SHA256('admin'), passHash = SHA256('TASL@2026')
-  ];
-
-  // Pre-computed hashes for default credentials
-  const USER_HASH = '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918'; // admin
-  const PASS_HASH = 'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3'; // TASL@2026 — will be computed live
-
-  const MAX_ATTEMPTS = 5;
-  const LOCK_MINUTES = 2;
   const SESSION_KEY = 'tw_auth_session';
-  const LOCK_KEY = 'tw_auth_lock';
 
-  // Check if already logged in
-  (function() {
-    const sess = sessionStorage.getItem(SESSION_KEY);
-    if (sess === 'authenticated') {
-      window.location.href = 'summary.html';
-    }
-  })();
-
-  // Check lockout
-  function getLock() {
-    try { return JSON.parse(localStorage.getItem(LOCK_KEY) || 'null'); } catch { return null; }
-  }
-  function setLock(data) { localStorage.setItem(LOCK_KEY, JSON.stringify(data)); }
-
-  function checkLocked() {
-    const lock = getLock();
-    if (!lock) return false;
-    const now = Date.now();
-    if (lock.lockedUntil && now < lock.lockedUntil) {
-      const remaining = Math.ceil((lock.lockedUntil - now) / 60000);
-      showLockMsg('Account locked. Try again in ' + remaining + ' minute(s).');
-      document.getElementById('loginBtn').disabled = true;
-      return true;
-    }
-    if (lock.lockedUntil && now >= lock.lockedUntil) {
-      localStorage.removeItem(LOCK_KEY);
-    }
-    return false;
-  }
-
-  async function sha256(message) {
-    const msgBuffer = new TextEncoder().encode(message);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  }
+  fetch('/api/session', { credentials: 'same-origin' })
+    .then(response => {
+      if (response.ok) window.location.replace('/summary.html');
+    })
+    .catch(() => {});
 
   async function doLogin() {
-    if (checkLocked()) return;
-
     const user = document.getElementById('loginUser').value.trim();
     const pass = document.getElementById('loginPass').value;
-
     if (!user || !pass) {
       showError('Please enter both username and password.');
       return;
     }
-
-    const uHash = await sha256(user);
-    const pHash = await sha256(pass);
-
-    // Valid credentials check
-    const valid = (
-      uHash === '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918' &&
-      pHash === await sha256('TASL@2026')
-    );
-
-    if (valid) {
-      sessionStorage.setItem(SESSION_KEY, 'authenticated');
-      localStorage.removeItem(LOCK_KEY);
-      window.location.href = 'summary.html';
-    } else {
-      const lock = getLock() || { attempts: 0 };
-      lock.attempts = (lock.attempts || 0) + 1;
-      const remaining = MAX_ATTEMPTS - lock.attempts;
-
-      if (lock.attempts >= MAX_ATTEMPTS) {
-        lock.lockedUntil = Date.now() + LOCK_MINUTES * 60 * 1000;
-        setLock(lock);
-        showError('Too many failed attempts.');
-        showLockMsg('Account locked for ' + LOCK_MINUTES + ' minutes.');
-        document.getElementById('loginBtn').disabled = true;
-      } else {
-        setLock(lock);
-        showError('Incorrect username or password.');
-        showAttempts(remaining + ' attempt' + (remaining === 1 ? '' : 's') + ' remaining before lockout.');
+    const button = document.getElementById('loginBtn');
+    button.disabled = true;
+    document.getElementById('loginError').classList.remove('show');
+    document.getElementById('lockMsg').classList.remove('show');
+    try {
+      const csrfResponse = await fetch('/api/csrf', { credentials: 'same-origin' });
+      const csrf = await csrfResponse.json();
+      if (!csrfResponse.ok) throw new Error(csrf.error || 'Could not start a secure login.');
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrf.token
+        },
+        body: JSON.stringify({ username: user, password: pass })
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        if (response.status === 429) showLockMsg(result.error);
+        else showError(result.error || 'Sign-in failed.');
+        return;
       }
+      sessionStorage.setItem(SESSION_KEY, 'authenticated');
+      window.location.replace('/summary.html');
+    } catch (error) {
+      showLockMsg(error.message || 'Unable to reach the tracker server.');
+    } finally {
       document.getElementById('loginPass').value = '';
-      document.getElementById('loginPass').focus();
+      if (!sessionStorage.getItem(SESSION_KEY)) {
+        button.disabled = false;
+        document.getElementById('loginPass').focus();
+      }
     }
   }
 
@@ -353,8 +305,6 @@
     document.getElementById('loginError').classList.remove('show');
   }
 
-  // On load — check lockout state
-  checkLocked();
 </script>
 </body>
 </html>

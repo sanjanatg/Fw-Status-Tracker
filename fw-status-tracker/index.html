@@ -9,11 +9,6 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
 <link rel="stylesheet" href="style.css"/>
-<script>
-  if (sessionStorage.getItem('tw_auth_session') !== 'authenticated') {
-    window.location.replace('login.html');
-  }
-</script>
 </head>
 <body>
 
@@ -86,6 +81,7 @@
 
 <div id="toast"></div>
 
+<script src="storage.js"></script>
 <script src="script.js"></script>
 </body>
 </html>

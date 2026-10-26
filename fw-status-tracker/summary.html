@@ -18,12 +18,6 @@
   <link rel="stylesheet" href="https://jsdelivr.net/dist/plugins/monthSelect/style.css">
   <script src="https://jsdelivr.net/dist/plugins/monthSelect/index.js"></script>  -->
 
-  <script>
-    // Auth guard — redirect to login if not authenticated
-    if (sessionStorage.getItem('tw_auth_session') !== 'authenticated') {
-      window.location.replace('login.html');
-    }
-  </script>
 </head>
 
 <body class="summary-page-body">
@@ -63,72 +57,55 @@
       </button>
     </header>
 
-
-
-
-    <!-- Metrics -->
-    <section class="summary-metric-grid" id="summaryMetricGrid"></section>
-
-    <!-- Project Wise Status -->
-    <!-- 1. RESTORED DASHBOARD STATISTICS SUMMARY METRIC CARDS ROW -->
-    <!-- This grid is now fully restored so renderMetrics() doesn't crash the script! -->
-
-
-    <!-- Import Excel button next to metrics cards
-  <div class="metric-import-wrapper">
-    <button class="btn-summary-action btn-import-summary" onclick="document.getElementById('summaryImportInput').click()">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
-        <path d="M12 21V9M8 13l4-4 4 4M5 3h14" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      Import Excel
-    </button>
-    <input id="summaryImportInput" type="file" accept=".xlsx,.xls,.csv" onchange="handleSummaryImport(this)" hidden/>
-  </div>
-</div> -->
-
-    <!-- 2. PROJECT WISE STATUS MULTI-FILTER CONTROL ENGINE HUB -->
-
-    <!-- RESTORED TOP SUMMARY METRIC BOXES AND IMPORT BLOCK ROW -->
-    <!-- THE CORRECTED ROW CONTAINER: Restores placeholder bones so row displays instantly -->
-    <div class="metrics-row-container">
-
-      <!-- Injected with four clean temporary placeholders so the row remains visible before JS calculates values -->
-      <!-- REPLACE YOUR Spoken Block inside summary.html WITH THIS: -->
-      <div class="metrics-row-container">
-        <div id="summaryMetricGrid" class="summary-metric-grid">
-          
-          <article class="summary-metric-card">
-            <div>FW Total Projects</div>
-            <strong id="metricTotalProjects">0</strong>
-            <span>Saved project names</span>
-          </article>
-          
-          <article class="summary-metric-card">
-            <div>FW Total Project Modules</div>
-            <strong id="metricTotalModules">0</strong>
-            <span>Total module rows</span>
-          </article>
-          
-          <article class="summary-metric-card">
-            <div>FW Total DVC Reviewed</div>
-            <strong id="metricDvcReviewed">0</strong>
-            <span id="metricDvcSubtext">0 pending / no</span>
-          </article>
-          
-          <article class="summary-metric-card">
-            <div>FW Total TC Released</div>
-            <strong id="metricTcReleased">0</strong>
-            <span id="metricTcSubtext">0 pending / no</span>
-          </article>
-          
-        </div>
+    <section class="summary-section" id="userAdminPanel" hidden>
+      <div class="summary-section-head">
+        <h2>Account Administration</h2>
+        <span>Manage access to the shared tracker</span>
       </div>
-      
+      <form class="dashboard-filter-hub" onsubmit="adminCreateUser(event)">
+        <div class="fgroup">
+          <label class="flabel" for="userAdminUsername">Username</label>
+          <input id="userAdminUsername" name="username" maxlength="80" required autocomplete="off" />
+        </div>
+        <div class="fgroup">
+          <label class="flabel" for="userAdminPassword">Initial password (14+ characters)</label>
+          <input id="userAdminPassword" name="password" type="password" minlength="14" required autocomplete="new-password" />
+        </div>
+        <label><input id="userAdminRole" type="checkbox" /> Administrator</label>
+        <button class="btn-summary-action" type="submit">Create account</button>
+      </form>
+      <div class="summary-table-wrap">
+        <table class="summary-table">
+          <thead><tr><th>Username</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="userAdminTableBody"></tbody>
+        </table>
+      </div>
+    </section>
 
-
-
-
-      <!-- Right-aligned Import Excel Action Button Block -->
+    <!-- Dashboard metrics and import -->
+    <div class="metrics-row-container">
+      <div id="summaryMetricGrid" class="summary-metric-grid">
+        <article class="summary-metric-card">
+          <div>FW Total Projects</div>
+          <strong id="metricTotalProjects">0</strong>
+          <span>Saved project names</span>
+        </article>
+        <article class="summary-metric-card">
+          <div>FW Total Project Modules</div>
+          <strong id="metricTotalModules">0</strong>
+          <span>Total module rows</span>
+        </article>
+        <article class="summary-metric-card">
+          <div>FW Total DVC Reviewed</div>
+          <strong id="metricDvcReviewed">0</strong>
+          <span id="metricDvcSubtext">0 pending / no</span>
+        </article>
+        <article class="summary-metric-card">
+          <div>FW Total TC Released</div>
+          <strong id="metricTcReleased">0</strong>
+          <span id="metricTcSubtext">0 pending / no</span>
+        </article>
+      </div>
       <div class="metric-import-wrapper">
         <button class="btn-summary-action btn-import-summary"
           onclick="document.getElementById('summaryImportInput').click()">
@@ -233,7 +210,7 @@
               stroke-linejoin="round" />
           </svg>
         </h2>
-        <span id="summaryRowCount"></span>
+        <span id="summaryDetailRowCount"></span>
       </div>
       <div class="summary-collapsible" id="moduleDetailsPanel" style="display:none">
 
@@ -289,6 +266,7 @@
 
   <div id="summaryToast"></div>
 
+  <script src="storage.js"></script>
   <script src="summary.js"></script>
 </body>
 

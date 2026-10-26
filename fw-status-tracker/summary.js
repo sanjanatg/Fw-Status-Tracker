@@ -1,9 +1,4 @@
 // --- LINE 1-3 inside summary.js ---
-const STORE_KEY = 'tw_tracker_v9';
-// FIX: Match the exact lowercase key format used by script.js to load the saved array
-const PERM_KEY = 'tw_tracker_perm_modules'; 
-
-
 // I-AUTHO-NUM: fixed 11-zero prefix + 5 manually entered digits = 16 chars total
 const AUTHO_PREFIX = '00000000000';
 function buildAuthoNum(suffix) {
@@ -25,27 +20,6 @@ let activeFilters = {
 
 // Global hook placeholder variable to track Flatpickr engine instance
 let filterCalInstance = null;
-
-// Catch initial setup and extend default render workflows seamlessly
-// const originalRenderSummary = renderSummary;
-window.addEventListener('DOMContentLoaded', () => {
-  // Execute database data pull sequence securely on page mount
-  const entries = loadAll().filter(Boolean);
-  if (entries.length) mergeToPermanent(entries);
-
-  currentPermRows = loadPermanentRows();
-  
-  // Instantly process calculations for the top cards view
-  const summary = getSummaryFromPermanentRows(currentPermRows);
-  renderMetrics(summary);
-  
-  // Seed the dropdown controls securely using the complete master array
-  initFilterControlsData(currentPermRows);
-  
-  // Fire decoupled panel rendering actions simultaneously
-  runCombinedFilters();   // Strictly handles middle progress cards viewports
-  renderFilteredTable();  // Strictly handles lower data grid rows viewports
-});;
 
 // ── SEED DATA VALUES INTO FILTER UI COMPONENT DRAWER DRAWS ──
 // ── 1. FIXED FILTER ENGINE INITIALIZER ──
@@ -70,7 +44,7 @@ function initFilterControlsData(rows) {
     const isChecked = activeFilters.selectedModules.has(lowerM) ? 'checked' : '';
     return `
       <label class="drawer-checkbox-item">
-        <input type="checkbox" value="${escapeHtml(lowerM)}" ${isChecked} onchange="handleModuleCheckboxChange(this, '${escapeHtml(m)}')"/>
+        <input type="checkbox" value="${escapeHtml(lowerM)}" ${isChecked} onchange="handleModuleCheckboxChange(this)"/>
         <span>${escapeHtml(m)}</span>
       </label>
     `;
@@ -99,7 +73,7 @@ function handleNativeMonthFilter(input) {
 }
 
 // Handle checkboxes dynamic updates
-function handleModuleCheckboxChange(cb, rawName) {
+function handleModuleCheckboxChange(cb) {
   const val = cb.value;
   if (cb.checked) {
     activeFilters.selectedModules.add(val);
@@ -296,15 +270,11 @@ function resetDashboardFilters() {
 
 // ── Storage ──
 function loadAll() {
-  try { return JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); } catch { return []; }
+  return window.trackerStore.entries;
 }
 
 function loadPermanentRows() {
-  try { return JSON.parse(localStorage.getItem(PERM_KEY) || '[]'); } catch { return []; }
-}
-
-function savePermanentRows(rows) {
-  localStorage.setItem(PERM_KEY, JSON.stringify(rows));
+  return window.trackerStore.modules;
 }
 
 // ── Build rows from live entries (for metrics/project stats) ──
@@ -329,38 +299,6 @@ function buildRows(entries) {
     }));
   });
 }
-
-// ── Merge new rows into permanent store (append only, no deletion) ──
-// ── REPLACE THIS DETAILED SNIPPET IN SUMMARY.JS ──
-function mergeToPermanent(entries) {
-  const existing = loadPermanentRows();
-  const newRows = buildRows(entries);
-
-  // Enforce uppercase string keys to handle any mixed casing project inputs safely
-  const makeKey = r => [
-    String(r.projectName || '').trim().toUpperCase(),
-    String(r.moduleName || '').trim().toLowerCase(),
-    String(r.version || '').trim().toLowerCase(),
-    String(r.fwDocs || '').trim().toLowerCase()
-  ].join('||');
-  
-  const existingKeyMap = new Map(existing.map((r, i) => [makeKey(r), i]));
-  const merged = [...existing];
-
-  newRows.forEach(row => {
-    if (!row.moduleName) return;
-    const key = makeKey(row);
-    if (existingKeyMap.has(key)) {
-      // DYNAMIC FETCH CORRECTION: Overwrite fields, ensuring checksum & size are safely appended
-      merged[existingKeyMap.get(key)] = { ...merged[existingKeyMap.get(key)], ...row };
-    } else {
-      merged.push(row);
-    }
-  });
-  
-  savePermanentRows(merged);
-}
-
 
 function getSummary(entries) {
   const validEntries = entries.filter(Boolean);
@@ -447,10 +385,6 @@ function getSummaryFromPermanentRows(rows) {
 
 // ── Render ──
 function renderSummary() {
-  // Execute database data pull sequence securely on page mount
-  const entries = loadAll().filter(Boolean);
-  if (entries.length) mergeToPermanent(entries);
-
   currentPermRows = loadPermanentRows();
   
   // Instantly process calculations for the top cards view
@@ -464,9 +398,6 @@ function renderSummary() {
   runCombinedFilters();   // Strictly handles middle progress cards viewports
   renderFilteredTable();  // Strictly handles lower data grid rows viewports
 }
-
-// Bind to window lifecycle listener to ensure safe auto-booting on layout load
-window.addEventListener('DOMContentLoaded', renderSummary);
 
 // ── Search bar: filter currentPermRows by any field, then render ──
 function filterModuleTable() {
@@ -512,10 +443,12 @@ function renderFilteredTable() {
   // Force rendering onto the target layout grid view template table body
   renderTable(rowsToDraw);
   
-  // Dynamically update the row counter below the table to accurately reflect table elements
-  const rowCounter = document.getElementById('summaryRowCount');
-  if (rowCounter) {
-    rowCounter.textContent = `${rowsToDraw.length} module row(s) listed below`;
+  const rowCountText = `${rowsToDraw.length} module row(s) listed below`;
+  for (const counterId of ['summaryRowCount', 'summaryDetailRowCount']) {
+    const rowCounter = document.getElementById(counterId);
+    if (rowCounter) {
+      rowCounter.textContent = rowCountText;
+    }
   }
   
   updateSelectedCount();
@@ -695,7 +628,7 @@ function handleSummaryImport(input) {
   if (!file) return;
 
   const reader = new FileReader();
-  reader.onload = function (event) {
+  reader.onload = async function (event) {
     try {
       const wb = XLSX.read(event.target.result, { type: 'array', cellDates: true });
       const importedEntries = importWorkbookToEntries(wb);
@@ -706,13 +639,10 @@ function handleSummaryImport(input) {
 
       // ── CHANGE EVERYTHING FROM HERE DOWN TO THE CATCH BLOCK ──
       
-      // 1. Load your current live dashboard workspace cards state
-      let currentActiveWorkspace = [];
-      try {
-        currentActiveWorkspace = JSON.parse(localStorage.getItem('tw_tracker_v9') || '[]');
-      } catch (e) {
-        currentActiveWorkspace = [];
-      }
+      const currentActiveWorkspace = loadAll().map(entry => ({
+        ...entry,
+        modules: [...(entry.modules || [])]
+      }));
 
       // 2. Loop and merge rows into their matching project slots case-insensitively
       importedEntries.forEach(newEntry => {
@@ -739,8 +669,7 @@ function handleSummaryImport(input) {
       });
 
       // 3. Save the merged workspace back and refresh viewports
-      localStorage.setItem('tw_tracker_v9', JSON.stringify(currentActiveWorkspace));
-      mergeToPermanent(currentActiveWorkspace);
+      await window.trackerStore.saveEntries(currentActiveWorkspace);
       
       renderSummary();
       showSummaryToast('Imported and merged ' + importedEntries.length + ' project(s) cleanly.');
@@ -908,9 +837,98 @@ function normalizeChoice(value) {
   return value || '';
 }
 
-renderSummary();
+window.trackerStore.initialize().then(ready => {
+  if (!ready) return;
+  renderSummary();
+  if (window.trackerStore.user && window.trackerStore.user.is_admin) {
+    document.getElementById('userAdminPanel').hidden = false;
+    renderAdminUsers();
+  }
+});
 
-function doLogout() {
-  sessionStorage.removeItem('tw_auth_session');
-  window.location.href = 'login.html';
+async function renderAdminUsers() {
+  const body = document.getElementById('userAdminTableBody');
+  if (!body) return;
+  try {
+    const result = await window.trackerStore.request('/api/users');
+    body.innerHTML = result.users.map(user => `
+      <tr>
+        <td>${escapeHtml(user.username)}</td>
+        <td>${user.is_admin ? 'Administrator' : 'User'}</td>
+        <td>${user.is_active ? 'Active' : 'Inactive'}</td>
+        <td>
+          <button type="button" class="btn-summary-action"
+            onclick="adminSetUser(${user.id}, ${!user.is_active}, ${user.is_admin})">
+            ${user.is_active ? 'Deactivate' : 'Reactivate'}
+          </button>
+          <button type="button" class="btn-summary-action"
+            onclick="adminSetUser(${user.id}, ${user.is_active}, ${!user.is_admin})">
+            ${user.is_admin ? 'Remove admin' : 'Make admin'}
+          </button>
+          <button type="button" class="btn-summary-action"
+            onclick="adminResetPassword(${user.id})">Reset password</button>
+        </td>
+      </tr>
+    `).join('');
+  } catch (error) {
+    showSummaryToast('Could not load user accounts: ' + error.message);
+  }
+}
+
+async function adminCreateUser(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const username = form.elements.username.value.trim();
+  const password = form.elements.password.value;
+  const is_admin = document.getElementById('userAdminRole').checked;
+  try {
+    await window.trackerStore.request('/api/users', {
+      method: 'POST',
+      body: JSON.stringify({ username, password, is_admin })
+    });
+    form.reset();
+    await renderAdminUsers();
+    showSummaryToast('Account created.');
+  } catch (error) {
+    showSummaryToast('Could not create account: ' + error.message);
+  }
+}
+
+async function adminSetUser(id, is_active, is_admin) {
+  try {
+    await window.trackerStore.request('/api/users/' + id, {
+      method: 'PATCH',
+      body: JSON.stringify({ is_active, is_admin })
+    });
+    await renderAdminUsers();
+    showSummaryToast('Account updated.');
+  } catch (error) {
+    showSummaryToast('Could not update account: ' + error.message);
+  }
+}
+
+async function adminResetPassword(id) {
+  const password = window.prompt('Enter a new password with at least 14 characters.');
+  if (password === null) return;
+  if (password.length < 14) {
+    showSummaryToast('Password must contain at least 14 characters.');
+    return;
+  }
+  try {
+    await window.trackerStore.request('/api/users/' + id + '/password', {
+      method: 'PUT',
+      body: JSON.stringify({ password })
+    });
+    showSummaryToast('Password reset. Existing sessions for that user have been signed out.');
+  } catch (error) {
+    showSummaryToast('Could not reset password: ' + error.message);
+  }
+}
+
+async function doLogout() {
+  try {
+    await window.trackerStore.logout();
+  } catch (error) {
+    showSummaryToast('Could not safely sign out: ' + error.message);
+  }
 }
