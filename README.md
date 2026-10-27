@@ -6,13 +6,6 @@ server. It runs as a Python web application or in Docker, stores shared data in
 SQLite on the host/server, and can use Caddy for HTTPS. It does not require a
 cloud application host or cloud database.
 
-> **Company use:** Obtain approval from your IT/security team before exposing
-> any internal application or information to a company network or the public
-> internet. They should approve the host, DNS name, firewall rules, TLS
-> approach, accounts, backup location, data classification, and recovery
-> process. Do not put classified, regulated, export-controlled, or otherwise
-> sensitive information into this app until it has been reviewed and approved
-> for that use.
 
 ## Contents
 

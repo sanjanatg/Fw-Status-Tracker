@@ -27,6 +27,10 @@ window.trackerStore = {
       if (response.status === 401 && path !== '/api/login') {
         window.location.replace('/login.html');
       }
+      // ADD THIS BLOCK: If a 403 Forbidden happens, wipe out the old local CSRF cache
+      if (response.status === 403) {
+        this.csrf = null; 
+      }
       throw new Error(result.error || `Server request failed (${response.status}).`);
     }
     return result;
