@@ -676,3 +676,31 @@ Before users begin using a server deployment, confirm all of the following:
 - [ ] Users understand that this is a single-host SQLite application, has no
   MFA, and is not currently designed for high availability or multi-server
   scaling.
+
+
+
+## Option 2  simple deplyment over network
+
+- current computer's local network address is 172.20.209.52.
+
+- Step 1: Start the application with the network flags
+
+  - Instead of launching the application normally, you must explicitly tell Python to bind to all network cards and open up communication ports. In your PowerShell window, run:
+powershell
+python main.py --host 0.0.0.0 --port 8000
+  
+  - (Keep this terminal open. If it is still asking for your Admin username/password from the first-run configuration, complete that step first so the server can fully start).
+
+Step 2: How teammates can access it
+
+  - Once the server is running, anyone sitting near you who is connected to the exact same office network branch can open their browser and type your IP address directly into the URL bar:
+
+http://172.20.209.52:8000
+
+
+### ⚠️ Corporate Network Security Caveats
+
+Because you are on a highly secure enterprise network, two common roadblocks might prevent your teammates from opening that link:
+1. Windows Defender Firewall: Your local computer's built-in Windows firewall might block inbound requests on port 8000. If your coworkers get a "Connection Timed Out" error, you would temporarily need to open your Windows Firewall settings and add an Inbound Rule allowing traffic on TCP Port 8000.
+2. Network Isolation: Enterprise networks often implement "client isolation," which stops corporate laptops from communicating directly with each other even if they are on the same floor.
+
