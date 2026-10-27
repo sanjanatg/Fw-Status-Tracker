@@ -32,11 +32,8 @@
         <div class="summary-kicker">
           <h1>TATA Advanced Systems</h1>
         </div>
-        <br><br>
         <h2>FW Status Tracker</h2>
 
-        <!-- Open Tracker is now forced to the bottom-left of the blue container -->
-        <br><br>
         <div class="tracker-btn-wrapper">
           <button class="btn-summary-action btn-tracker" onclick="window.location.href='index.html'">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
@@ -59,23 +56,30 @@
 
     <section class="summary-section" id="userAdminPanel" hidden>
       <div class="summary-section-head">
-        <h2>User Management</h2>
-        <span></span>
+        <div>
+          <h2>User Management</h2>
+          <p class="user-admin-description">Create accounts and manage access to the shared tracker.</p>
+        </div>
+        <span id="userAdminCount" aria-live="polite"></span>
       </div>
-      <form class="dashboard-filter-hub" onsubmit="adminCreateUser(event)">
+      <form class="user-admin-form" onsubmit="adminCreateUser(event)">
         <div class="fgroup">
           <label class="flabel" for="userAdminUsername">Username</label>
-          <input id="userAdminUsername" name="username" maxlength="80" required autocomplete="off" />
+          <input id="userAdminUsername" name="username" maxlength="80" required autocomplete="username"
+            placeholder="Enter a username" />
         </div>
         <div class="fgroup">
           <label class="flabel" for="userAdminPassword">Initial password (8+ characters)</label>
           <input id="userAdminPassword" name="password" type="password" minlength="8" required
-            autocomplete="new-password" />
+            autocomplete="new-password" placeholder="At least 8 characters" />
         </div>
-        <label><input id="userAdminRole" type="checkbox" /> Administrator</label>
-        <button class="btn-summary-action" type="submit">Create account</button>
+        <label class="user-admin-role" for="userAdminRole">
+          <input id="userAdminRole" type="checkbox" />
+          <span>Administrator access</span>
+        </label>
+        <button class="btn-summary-action user-admin-submit" type="submit">Create account</button>
       </form>
-      <div class="summary-table-wrap">
+      <div class="summary-table-wrap user-admin-table-wrap">
         <table class="summary-table">
           <thead>
             <tr>
@@ -146,7 +150,7 @@
           <div class="dashboard-filter-hub">
             <div class="fgroup filter-box">
               <div class="flabel">Filter By Project</div>
-              <select id="filterProjectSelect" onchange="runCombinedFilters()">
+              <select id="filterProjectSelect" onchange="handleProjectFilterChange()">
                 <!-- Options dynamically loaded via JS -->
               </select>
             </div>
@@ -191,9 +195,37 @@
             </div>
           </div>
 
-          <!-- Grouped Filter Cards Visual Area -->
+          <!-- Filtered project cards and matching module rows -->
           <div class="summary-project-list" id="summaryProjectList">
             <!-- Rendered project details show here -->
+          </div>
+
+          <div class="project-filtered-details" id="projectFilteredDetails" hidden>
+            <div class="summary-table-wrap filtered-module-table-wrap">
+              <table class="summary-table filtered-module-table">
+                <thead>
+                  <tr>
+                    <th class="summary-select-col">
+                      <input type="checkbox" id="selectAllProjectRowsCheckbox"
+                        onchange="toggleSelectAllRows(this, 'project')" title="Select all filtered rows" />
+                    </th>
+                    <th>Project</th>
+                    <th>Module</th>
+                    <th>FW Doc</th>
+                    <th>Module No.</th>
+                    <th>I-AUTH-NUM</th>
+                    <th>DVC</th>
+                    <th>Version</th>
+                    <th>Review</th>
+                    <th>Testing</th>
+                    <th>TC</th>
+                    <th>Checksum</th>
+                    <th>Size</th>
+                  </tr>
+                </thead>
+                <tbody id="projectFilteredDetailsList" aria-live="polite"></tbody>
+              </table>
+            </div>
           </div>
         </section>
       </div>
