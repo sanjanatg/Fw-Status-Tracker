@@ -59,8 +59,8 @@
 
     <section class="summary-section" id="userAdminPanel" hidden>
       <div class="summary-section-head">
-        <h2>Account Administration</h2>
-        <span>Manage access to the shared tracker</span>
+        <h2>User Management</h2>
+        <span></span>
       </div>
       <form class="dashboard-filter-hub" onsubmit="adminCreateUser(event)">
         <div class="fgroup">
@@ -69,14 +69,22 @@
         </div>
         <div class="fgroup">
           <label class="flabel" for="userAdminPassword">Initial password (8+ characters)</label>
-          <input id="userAdminPassword" name="password" type="password" minlength="8" required autocomplete="new-password" />
+          <input id="userAdminPassword" name="password" type="password" minlength="8" required
+            autocomplete="new-password" />
         </div>
         <label><input id="userAdminRole" type="checkbox" /> Administrator</label>
         <button class="btn-summary-action" type="submit">Create account</button>
       </form>
       <div class="summary-table-wrap">
         <table class="summary-table">
-          <thead><tr><th>Username</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
           <tbody id="userAdminTableBody"></tbody>
         </table>
       </div>
@@ -167,7 +175,7 @@
             <!-- NATIVE MONTH FILTER: 100% Offline Compatible & Internet Free -->
             <!-- FILTER 3: Native Month Input with Auto-Open Picker Interaction -->
             <div class="fgroup filter-box">
-              <div class="flabel">Filter By Timeline</div>
+              <div class="flabel">Filter By Month & Year</div>
               <div class="date-wrap">
                 <input type="text" id="filterTimelineInput" placeholder="MM/YYYY" class="date-inp"
                   style="cursor: pointer;" onfocus="this.type='month'; try { this.showPicker(); } catch(e) {}"
@@ -204,7 +212,7 @@
       <div class="summary-section-head summary-toggle-head" onclick="toggleModuleDetails()"
         id="moduleDetailsToggleHead">
         <h2>
-          All Module Details
+          All Projects & Modules Status
           <svg class="toggle-chevron" id="moduleDetailsChevron" width="18" height="18" viewBox="0 0 24 24" fill="none">
             <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"
               stroke-linejoin="round" />

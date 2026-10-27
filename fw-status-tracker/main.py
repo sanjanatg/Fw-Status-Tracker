@@ -34,8 +34,7 @@ app.config.update(
     MAX_CONTENT_LENGTH=MAX_REQUEST_BYTES,
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Strict",
-    SESSION_COOKIE_SECURE=os.environ.get("TRACKER_COOKIE_SECURE", "true").lower()
-    not in {"0", "false", "no"},
+    SESSION_COOKIE_SECURE=os.environ.get("TRACKER_COOKIE_SECURE", "true").lower() not in {"0", "false", "no"},
     PERMANENT_SESSION_LIFETIME=SESSION_TTL,
 )
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
