@@ -8,6 +8,7 @@ function buildAuthoNum(suffix) {
 
 // ── All Module Details: search + manual row selection state ──
 let currentPermRows = [];       // full, unfiltered list of module rows currently loaded
+let currentDashboardRows = [];
 let moduleSearchText = '';      // current search bar text (lowercased)
 let selectedModuleRows = new Set(); // indices (into currentPermRows) that are checked
 
@@ -17,6 +18,9 @@ let activeFilters = {
   selectedModules: new Set(), // tracks checked module names
   timeline: '' // formatted string tracker "MM/YYYY"
 };
+let allModuleNames = new Map();
+let availableModuleNames = new Map();
+let moduleFilterActive = false;
 
 // Global hook placeholder variable to track Flatpickr engine instance
 let filterCalInstance = null;
@@ -29,18 +33,50 @@ function initFilterControlsData(rows) {
   
   if (!projSelect || !modDrawer) return;
 
-  const uniqueProjects = [...new Set(rows.map(r => (r.projectName || '').trim()).filter(Boolean))];
-  const uniqueModules = [...new Set(rows.map(r => (r.moduleName || '').trim()).filter(Boolean))];
+  const uniqueProjects = [...new Set(rows.map(r => String(r.projectName || '').trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b));
 
-  // Map project options standardizing data keys to lowercase strings
   const currentProjSelection = projSelect.value || 'ALL';
-  projSelect.innerHTML = '<option value="ALL">— Select Project —</option>' + 
+  projSelect.innerHTML = '<option value="ALL">All Projects</option>' +
     uniqueProjects.map(p => `<option value="${escapeHtml(p.trim().toLowerCase())}">${escapeHtml(p)}</option>`).join('');
-  projSelect.value = currentProjSelection;
+  projSelect.value = [...projSelect.options].some(option => option.value === currentProjSelection)
+    ? currentProjSelection
+    : 'ALL';
 
-  // Map out modules list drawer cleanly
-  const drawerItemsHtml = uniqueModules.map(m => {
-    const lowerM = m.trim().toLowerCase();
+  allModuleNames = new Map(
+    rows
+      .map(row => String(row.moduleName || '').trim())
+      .filter(Boolean)
+      .map(name => [name.toLowerCase(), name])
+  );
+  activeFilters.projectName = projSelect.value;
+  setAvailableModulesForProject(activeFilters.projectName, rows, activeFilters.projectName !== 'ALL');
+}
+
+function setAvailableModulesForProject(projectName, rows, selectAll) {
+  const scopedRows = projectName === 'ALL'
+    ? rows
+    : rows.filter(row => String(row.projectName || '').trim().toLowerCase() === projectName);
+  availableModuleNames = new Map(
+    scopedRows
+      .map(row => String(row.moduleName || '').trim())
+      .filter(Boolean)
+      .map(name => [name.toLowerCase(), name])
+  );
+  activeFilters.selectedModules = selectAll
+    ? new Set(availableModuleNames.keys())
+    : new Set();
+  moduleFilterActive = selectAll;
+  updateModuleFilterOptions();
+}
+
+function updateModuleFilterOptions() {
+  const modDrawer = document.getElementById('moduleCheckboxDrawer');
+  if (!modDrawer) return;
+
+  const drawerItemsHtml = [...availableModuleNames.entries()]
+    .sort((a, b) => a[1].localeCompare(b[1]))
+    .map(([lowerM, m]) => {
     const isChecked = activeFilters.selectedModules.has(lowerM) ? 'checked' : '';
     return `
       <label class="drawer-checkbox-item">
@@ -51,14 +87,63 @@ function initFilterControlsData(rows) {
   }).join('');
   modDrawer.innerHTML = drawerItemsHtml || '<div style="padding: 8px; color: var(--muted);">No modules available</div>';
 
-  const timelineInput = document.getElementById('filterTimelineInput');
-  if (timelineInput) {
-    timelineInput.onchange = function() {
-      handleNativeMonthFilter(this);
-    };
+  updateModuleFilterLabel();
+}
+
+function areAllModulesSelected() {
+  return availableModuleNames.size > 0 &&
+    activeFilters.selectedModules.size === availableModuleNames.size &&
+    [...availableModuleNames.keys()].every(name => activeFilters.selectedModules.has(name));
+}
+
+function updateModuleFilterLabel() {
+  const label = document.getElementById('checkboxDropdownLabel');
+  if (!label) return;
+
+  if (areAllModulesSelected()) {
+    label.textContent = 'All Modules Selected';
+  } else if (activeFilters.selectedModules.size === 0) {
+    label.textContent = 'Select Modules';
+  } else {
+    label.textContent = `${activeFilters.selectedModules.size} Module(s) Selected`;
   }
 }
 
+function handleProjectFilterChange() {
+  activeFilters.projectName = document.getElementById('filterProjectSelect')?.value || 'ALL';
+  setAvailableModulesForProject(activeFilters.projectName, currentPermRows, activeFilters.projectName !== 'ALL');
+  runCombinedFilters();
+}
+
+function getRowMonthYear(value) {
+  const text = String(value || '').trim();
+  if (!text) return '';
+
+  let match = text.match(/^(\d{4})-(\d{1,2})(?:-\d{1,2})?$/);
+  if (match) return `${match[2].padStart(2, '0')}/${match[1]}`;
+
+  match = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (match) return `${match[2].padStart(2, '0')}/${match[3]}`;
+
+  match = text.match(/^(\d{1,2})\/(\d{4})$/);
+  if (match) return `${match[1].padStart(2, '0')}/${match[2]}`;
+
+  return '';
+}
+
+function matchesDashboardFilters(row) {
+  const projectName = String(row.projectName || '').trim().toLowerCase();
+  const moduleName = String(row.moduleName || '').trim().toLowerCase();
+
+  if (activeFilters.projectName !== 'ALL' && projectName !== activeFilters.projectName) return false;
+  if (moduleFilterActive && !activeFilters.selectedModules.has(moduleName)) return false;
+  if (activeFilters.timeline) {
+    const reviewMonth = getRowMonthYear(row.review);
+    const testingMonth = getRowMonthYear(row.dateOfTesting);
+    if (reviewMonth !== activeFilters.timeline && testingMonth !== activeFilters.timeline) return false;
+  }
+  return true;
+}
 
 // Translates the native calendar input into dashboard database tokens safely offline
 function handleNativeMonthFilter(input) {
@@ -66,8 +151,7 @@ function handleNativeMonthFilter(input) {
   if (!val) {
     activeFilters.timeline = '';
   } else {
-    const parts = val.split('-'); // ["2026", "10"]
-    activeFilters.timeline = parts[1].padStart(2, '0') + '/' + parts[0]; // Saves cleanly as "10/2026"
+    activeFilters.timeline = getRowMonthYear(val);
   }
   runCombinedFilters();
 }
@@ -80,15 +164,9 @@ function handleModuleCheckboxChange(cb) {
   } else {
     activeFilters.selectedModules.delete(val);
   }
-  
-  // Update selection indicator count tracking texts
-  const label = document.getElementById('checkboxDropdownLabel');
-  if (activeFilters.selectedModules.size === 0) {
-    label.textContent = "All Modules Selected";
-  } else {
-    label.textContent = `${activeFilters.selectedModules.size} Module(s) Selected`;
-  }
-  
+  moduleFilterActive = activeFilters.selectedModules.size > 0;
+
+  updateModuleFilterLabel();
   runCombinedFilters();
 }
 // Toggle open/close visibility states on the custom dropdown menu panel layer box
@@ -136,51 +214,27 @@ function runCombinedFilters() {
   const projSelect = document.getElementById('filterProjectSelect');
   if (projSelect) activeFilters.projectName = projSelect.value || 'ALL';
 
-  // Fallback layout view when "— Select Project —" (ALL) is left active
-  if (activeFilters.projectName === 'ALL') {
-    const listContainer = document.getElementById('summaryProjectList');
-    if (listContainer) {
-      listContainer.innerHTML = '<div class="summary-empty-state" style="border-style: solid; text-align: center; padding: 24px;">Please select a particular project from the dropdown filter above to view status cards metrics.</div>';
-    }
-    // FIX: Removed table manipulation calls from here completely!
-    return; 
-  }
-
-  // Filter rows specifically to update the middle progress card panel indicators
-  const matchedRows = currentPermRows.filter(row => {
-    // A. Verify selected project layout mapping matches
-    if (String(row.projectName || '').trim().toLowerCase() !== activeFilters.projectName) return false;
-
-    // B. Verify active checkbox drawer tags overlap perfectly
-    if (activeFilters.selectedModules.size > 0) {
-      if (!activeFilters.selectedModules.has(String(row.moduleName || '').trim().toLowerCase())) return false;
-    }
-
-    // C. Verify custom timeline month intervals align accurately
-    if (activeFilters.timeline) {
-      const reviewDateStr = String(row.review || '').trim();
-      const testingDateStr = String(row.dateOfTesting || '').trim();
-
-      const extractMonthYear = (dStr) => {
-        if (!dStr || !dStr.includes('/')) return '';
-        const p = dStr.split('/');
-        if (p.length < 3) return '';
-        return p.padStart(2, '0') + '/' + p;
-      };
-
-      const matchReview = extractMonthYear(reviewDateStr) === activeFilters.timeline;
-      const matchTesting = extractMonthYear(testingDateStr) === activeFilters.timeline;
-
-      if (!matchReview && !matchTesting) return false;
-    }
-
-    return true; 
-  });
-
-  // Re-build visual status card rows viewports in the middle section panel
+  currentDashboardRows = currentPermRows
+    .map((row, idx) => ({ row, idx }))
+    .filter(({ row }) => matchesDashboardFilters(row));
+  const matchedRows = currentDashboardRows.map(({ row }) => row);
+  renderMetrics(getSummaryFromPermanentRows(matchedRows));
   updateFilterCardsView(matchedRows);
+  renderProjectFilteredTable(currentDashboardRows);
+
+  const summaryCounter = document.getElementById('summaryRowCount');
+  if (summaryCounter) {
+    summaryCounter.textContent = hasActiveDashboardFilter()
+      ? `${matchedRows.length} matching module row(s)`
+      : 'Choose a filter to view results';
+  }
 }
 
+function hasActiveDashboardFilter() {
+  return activeFilters.projectName !== 'ALL' ||
+    moduleFilterActive ||
+    Boolean(activeFilters.timeline);
+}
 
 // ── PRINT OUT THE CLEAN CONSOLIDATED FILTER CARDS GRID ──
 // ── UPDATED COMPONENT: Dynamically lists matched module strings and aligns parameters ──
@@ -188,8 +242,13 @@ function updateFilterCardsView(filteredRows) {
   const listContainer = document.getElementById('summaryProjectList');
   if (!listContainer) return;
 
+  if (!hasActiveDashboardFilter()) {
+    listContainer.innerHTML = '<div class="summary-empty-state">Select a project, choose one or more modules, or select a month and year to view status cards.</div>';
+    return;
+  }
+
   if (!filteredRows.length) {
-    listContainer.innerHTML = '<div class="summary-empty-state" style="border-style: solid; text-align: center; padding: 24px;">No matching project status metrics found for the selected filter variations.</div>';
+    listContainer.innerHTML = '<div class="summary-empty-state">No projects or status data found for the selected filters.</div>';
     return;
   }
 
@@ -253,18 +312,19 @@ function updateFilterCardsView(filteredRows) {
 function resetDashboardFilters() {
   document.getElementById('filterProjectSelect').value = 'ALL';
   activeFilters.projectName = 'ALL';
+  availableModuleNames = new Map(allModuleNames);
   activeFilters.selectedModules.clear();
-  
-  const label = document.getElementById('checkboxDropdownLabel');
-  if (label) label.textContent = "All Modules Selected";
-  
-  document.querySelectorAll('#moduleCheckboxDrawer input[type="checkbox"]').forEach(cb => cb.checked = false);
+  moduleFilterActive = false;
   
   // FIXED FOR OFFLINE MONTH INPUT: Clears the native calendar date picker text box field cleanly
   const timelineInput = document.getElementById('filterTimelineInput');
-  if (timelineInput) timelineInput.value = '';
+  if (timelineInput) {
+    timelineInput.value = '';
+    timelineInput.type = 'text';
+  }
   activeFilters.timeline = '';
   
+  updateModuleFilterOptions();
   runCombinedFilters();
 }
 
@@ -418,17 +478,11 @@ function clearModuleSearch() {
 }
 
 function getFilteredModuleRows() {
-  // If the lower search text field is completely empty, return all permanent data rows instantly mapped with their index positions
-  if (!moduleSearchText) {
-    return currentPermRows.map((row, idx) => ({ row, idx }));
-  }
-  
-  // If search text is active, filter cross-column fields cleanly without crashing on empty values
   return currentPermRows
     .map((row, idx) => ({ row, idx }))
     .filter(({ row }) => {
       if (!row) return false;
-      return [
+      return !moduleSearchText || [
         row.projectName, row.moduleName, row.fwDocs, row.moduleNumber, 
         row.authoNum, row.dvcReview, row.version, row.review, 
         row.dateOfTesting, row.tcRelease, row.checkSum, row.size
@@ -440,18 +494,36 @@ function getFilteredModuleRows() {
 function renderFilteredTable() {
   const rowsToDraw = getFilteredModuleRows();
   
-  // Force rendering onto the target layout grid view template table body
-  renderTable(rowsToDraw);
-  
-  const rowCountText = `${rowsToDraw.length} module row(s) listed below`;
-  for (const counterId of ['summaryRowCount', 'summaryDetailRowCount']) {
-    const rowCounter = document.getElementById(counterId);
-    if (rowCounter) {
-      rowCounter.textContent = rowCountText;
-    }
-  }
+  renderTable(rowsToDraw, 'summaryTableBody', 'No module details available.');
+
+  const rowCountText = rowsToDraw.length
+    ? `${rowsToDraw.length} module row(s) listed below`
+    : moduleSearchText
+      ? 'No module rows match your search.'
+      : 'No module details available.';
+  const rowCounter = document.getElementById('summaryDetailRowCount');
+  if (rowCounter) rowCounter.textContent = rowCountText;
   
   updateSelectedCount();
+  syncSelectAllCheckbox();
+}
+
+function renderProjectFilteredTable(rows) {
+  const section = document.getElementById('projectFilteredDetails');
+  if (!document.getElementById('projectFilteredDetailsList')) return;
+
+  const hasActiveFilter = hasActiveDashboardFilter();
+  if (section) section.hidden = !hasActiveFilter;
+  if (!hasActiveFilter) {
+    syncSelectAllCheckbox();
+    return;
+  }
+
+  renderTable(
+    rows,
+    'projectFilteredDetailsList',
+    'No module rows match the selected dashboard filters.'
+  );
   syncSelectAllCheckbox();
 }
 function renderMetrics(summary) {
@@ -506,13 +578,14 @@ function renderProjects(summary) {
   `).join('');
 }
 
-function renderTable(entries) {
-  const body = document.getElementById('summaryTableBody');
+function renderTable(entries, bodyId, emptyMessage) {
+  const body = document.getElementById(bodyId);
+  if (!body) return;
   if (!entries.length) {
     const colspan = 13;
-    const msg = moduleSearchText
+    const msg = moduleSearchText && bodyId === 'summaryTableBody'
       ? 'No module rows match your search.'
-      : 'No module details available. Add entries in the Tracker.';
+      : emptyMessage;
     body.innerHTML = `<tr><td colspan="${colspan}">${escapeHtml(msg)}</td></tr>`;
     return;
   }
@@ -544,25 +617,34 @@ function toggleRowSelection(idx, checked) {
   else selectedModuleRows.delete(idx);
   updateSelectedCount();
   syncSelectAllCheckbox();
-  const cb = document.querySelector('#summaryTableBody input[data-idx="' + idx + '"]');
-  const row = cb ? cb.closest('tr') : null;
-  if (row) row.classList.toggle('row-selected', checked);
+  for (const bodyId of ['summaryTableBody', 'projectFilteredDetailsList']) {
+    const cb = document.querySelector(`#${bodyId} input[data-idx="${idx}"]`);
+    const row = cb ? cb.closest('tr') : null;
+    if (cb) cb.checked = checked;
+    if (row) row.classList.toggle('row-selected', checked);
+  }
 }
 
-function toggleSelectAllRows(checkbox) {
-  const visible = getFilteredModuleRows();
+function toggleSelectAllRows(checkbox, scope = 'all') {
+  const visible = scope === 'project' ? currentDashboardRows : getFilteredModuleRows();
   if (checkbox.checked) visible.forEach(({ idx }) => selectedModuleRows.add(idx));
   else visible.forEach(({ idx }) => selectedModuleRows.delete(idx));
   renderFilteredTable();
+  renderProjectFilteredTable(currentDashboardRows);
 }
 
 function syncSelectAllCheckbox() {
-  const selectAll = document.getElementById('selectAllRowsCheckbox');
-  if (!selectAll) return;
-  const visible = getFilteredModuleRows();
-  const allSelected = visible.length > 0 && visible.every(({ idx }) => selectedModuleRows.has(idx));
-  selectAll.checked = allSelected;
-  selectAll.indeterminate = !allSelected && visible.some(({ idx }) => selectedModuleRows.has(idx));
+  const checkboxes = [
+    { id: 'selectAllRowsCheckbox', rows: getFilteredModuleRows() },
+    { id: 'selectAllProjectRowsCheckbox', rows: currentDashboardRows }
+  ];
+  checkboxes.forEach(({ id, rows }) => {
+    const checkbox = document.getElementById(id);
+    if (!checkbox) return;
+    const allSelected = rows.length > 0 && rows.every(({ idx }) => selectedModuleRows.has(idx));
+    checkbox.checked = allSelected;
+    checkbox.indeterminate = !allSelected && rows.some(({ idx }) => selectedModuleRows.has(idx));
+  });
 }
 
 function updateSelectedCount() {
@@ -849,28 +931,39 @@ window.trackerStore.initialize().then(ready => {
 async function renderAdminUsers() {
   const body = document.getElementById('userAdminTableBody');
   if (!body) return;
+  const count = document.getElementById('userAdminCount');
+  body.innerHTML = '<tr><td colspan="4" class="user-admin-feedback">Loading accounts…</td></tr>';
   try {
     const result = await window.trackerStore.request('/api/users');
+    if (count) count.textContent = `${result.users.length} account${result.users.length === 1 ? '' : 's'}`;
+    if (!result.users.length) {
+      body.innerHTML = '<tr><td colspan="4" class="user-admin-feedback">No accounts found.</td></tr>';
+      return;
+    }
     body.innerHTML = result.users.map(user => `
       <tr>
-        <td>${escapeHtml(user.username)}</td>
-        <td>${user.is_admin ? 'Administrator' : 'User'}</td>
-        <td>${user.is_active ? 'Active' : 'Inactive'}</td>
-        <td>
-          <button type="button" class="btn-summary-action"
+        <td class="user-admin-name">${escapeHtml(user.username)}</td>
+        <td><span class="user-admin-badge ${user.is_admin ? 'is-admin' : ''}">${user.is_admin ? 'Administrator' : 'User'}</span></td>
+        <td><span class="user-admin-badge ${user.is_active ? 'is-active' : 'is-inactive'}">${user.is_active ? 'Active' : 'Inactive'}</span></td>
+        <td class="user-admin-action-cell">
+          <div class="user-admin-actions">
+          <button type="button" class="btn-summary-action user-admin-button ${user.is_active ? 'is-danger' : 'is-positive'}"
             onclick="adminSetUser(${user.id}, ${!user.is_active}, ${user.is_admin})">
             ${user.is_active ? 'Deactivate' : 'Reactivate'}
           </button>
-          <button type="button" class="btn-summary-action"
+          <button type="button" class="btn-summary-action user-admin-button"
             onclick="adminSetUser(${user.id}, ${user.is_active}, ${!user.is_admin})">
             ${user.is_admin ? 'Remove admin' : 'Make admin'}
           </button>
-          <button type="button" class="btn-summary-action"
+          <button type="button" class="btn-summary-action user-admin-button"
             onclick="adminResetPassword(${user.id})">Reset password</button>
+          </div>
         </td>
       </tr>
     `).join('');
   } catch (error) {
+    if (count) count.textContent = 'Accounts unavailable';
+    body.innerHTML = '<tr><td colspan="4" class="user-admin-feedback">Could not load accounts. Please try again.</td></tr>';
     showSummaryToast('Could not load user accounts: ' + error.message);
   }
 }

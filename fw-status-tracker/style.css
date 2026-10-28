@@ -1081,53 +1081,282 @@
   background: #045270de !important; /* Slightly darker shade of blue on hover */
   transform: translateY(-1px);
 }
-/* --- Replicated Base Layout Setup from Summary Header --- */
-.summary-page-header.unique-tracker-header {
-  display: flex !important;
-  justify-content: space-between !important; /* Pushes text/navigation block and logout button apart */
-  align-items: flex-end !important;         /* Anchors buttons evenly to the bottom line */
-  gap: 16px;
-  flex-wrap: wrap;
+.page > .summary-page-header {
+  width: min(1180px, calc(100% - 32px));
+  margin: 20px auto 22px;
   padding: 24px;
   border-radius: 10px;
-  margin: 20px auto 22px;
-  width: calc(100% - 32px);
-  max-width: 1180px;
-  
-  /* Semi-transparent blur container filter overlay to keep theme colors readable */
-  background: linear-gradient(135deg, rgba(14, 127, 168, 0.94), rgba(90, 180, 214, 0.86) 42%, rgba(155, 111, 181, 0.84)) !important;
-  border: 1px solid rgba(255, 255, 255, 0.44) !important;
-  box-shadow: 0 12px 34px rgba(30, 42, 58, 0.18) !important;
-  color: #ffffff !important;
 }
 
-/* --- Internal typography structure alignment --- */
-.unique-tracker-header .header-left-side {
+.summary-page > .summary-page-header {
+  width: 100%;
+  margin: 0 0 22px;
+}
+
+.summary-page-header .header-left-side {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 12px;
 }
 
-.unique-tracker-header .summary-kicker h1 {
-  font-family: 'Rajdhani', sans-serif;
-  font-size: clamp(32px, 5vw, 48px);
-  font-weight: 900;
-  line-height: 0.95;
-  letter-spacing: 1px;
+.summary-page-header .tracker-btn-wrapper {
+  margin-top: 4px;
+}
+
+.summary-page-header h2 {
   margin: 0;
-  color: #ffffff;
+  color: rgba(255, 255, 255, 0.9);
 }
 
-.unique-tracker-header h2 {
-  font-family: 'Inter', sans-serif;
-  font-size: 16px;
-  font-weight: 400;
-  color: rgba(255, 255, 255, 0.85);
-  margin: 4px 0 0 0;
+.summary-project-list {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 16px;
 }
 
-.unique-tracker-header .tracker-btn-wrapper {
-  margin-top: 14px;
+.full-width-card-override {
+  width: 100% !important;
+  max-width: none !important;
+  padding: 20px !important;
+}
+
+@media (max-width: 760px) {
+  .summary-project-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .page > .summary-page-header {
+    width: calc(100% - 24px);
+  }
+
+  .summary-page > .summary-page-header {
+    width: 100%;
+  }
+}
+
+#userAdminPanel {
+  padding: clamp(18px, 3vw, 28px);
+  overflow: hidden;
+}
+
+#userAdminPanel .summary-section-head {
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+#userAdminPanel .summary-section-head h2 {
+  margin: 0;
+}
+
+.user-admin-description {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+#userAdminPanel #userAdminCount {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border: 1px solid rgba(14,127,168,0.16);
+  border-radius: 999px;
+  background: rgba(14,127,168,0.06);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.user-admin-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.2fr) auto auto;
+  align-items: end;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding: 18px;
+  border: 1px solid rgba(90,180,214,0.2);
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.82), rgba(90,180,214,0.045));
+}
+
+.user-admin-form .fgroup input {
+  width: 100%;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid rgba(90,180,214,0.34);
+  border-radius: 7px;
+  outline: none;
+  background: rgba(255,255,255,0.96);
+  color: var(--text);
+  font: 13px 'Inter', sans-serif;
+  box-shadow: 0 2px 6px rgba(30,42,58,0.04);
+  transition: border-color .16s, box-shadow .16s;
+}
+
+.user-admin-form .fgroup input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(14,127,168,0.12);
+}
+
+.user-admin-form .fgroup input::placeholder {
+  color: #8997a5;
+}
+
+.user-admin-role {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  white-space: nowrap;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.user-admin-role input {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.user-admin-submit {
+  min-height: 42px;
+  justify-content: center;
+  white-space: nowrap;
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.user-admin-submit:hover {
+  background: #0b6a91;
+  border-color: #0b6a91;
+  color: #fff;
+}
+
+.user-admin-table-wrap {
+  border-color: rgba(90,180,214,0.2);
+}
+
+.user-admin-table-wrap .summary-table {
+  min-width: 680px;
+}
+
+.user-admin-table-wrap .summary-table th {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.user-admin-table-wrap .summary-table td {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.user-admin-table-wrap .summary-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.user-admin-name {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.user-admin-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 4px 10px;
+  border: 1px solid rgba(94,112,128,0.16);
+  border-radius: 999px;
+  background: rgba(94,112,128,0.06);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.user-admin-badge.is-admin {
+  border-color: rgba(155,111,181,0.22);
+  background: rgba(155,111,181,0.09);
+  color: #754d8e;
+}
+
+.user-admin-badge.is-active {
+  border-color: rgba(38,142,98,0.2);
+  background: rgba(38,142,98,0.08);
+  color: #237b55;
+}
+
+.user-admin-badge.is-inactive {
+  border-color: rgba(192,96,122,0.2);
+  background: rgba(192,96,122,0.08);
+  color: #a64e68;
+}
+
+.user-admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.user-admin-button {
+  min-height: 34px;
+  padding: 7px 11px;
+  border-radius: 7px;
+  background: rgba(14,127,168,0.055);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.user-admin-button.is-danger {
+  border-color: rgba(192,96,122,0.28);
+  background: rgba(192,96,122,0.06);
+  color: #a64e68;
+}
+
+.user-admin-button.is-positive {
+  border-color: rgba(38,142,98,0.24);
+  background: rgba(38,142,98,0.06);
+  color: #237b55;
+}
+
+.user-admin-feedback {
+  padding: 24px !important;
+  text-align: center !important;
+  color: var(--muted);
+}
+
+@media (max-width: 760px) {
+  #userAdminPanel .summary-section-head {
+    flex-direction: row;
+  }
+
+  .user-admin-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .user-admin-role,
+  .user-admin-submit {
+    justify-self: start;
+  }
+}
+
+@media (max-width: 480px) {
+  #userAdminPanel .summary-section-head {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .user-admin-form {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 13px;
+    padding: 14px;
+  }
+
+  .user-admin-role {
+    min-height: 32px;
+  }
 }
 /* --- FIX: Forces Filter Box Hub onto a Single Row Line --- */
 .dashboard-filter-hub {
@@ -1251,16 +1480,44 @@
 }
 /* --- Forces Status Layout Card to Span Full Component Width --- */
 .summary-project-list {
-  display: flex !important;
-  flex-direction: column !important; /* Stack project block containers vertically instead of tiny side-by-side squares */
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  align-items: start;
   gap: 16px;
   width: 100%;
 }
 
+.project-filtered-details {
+  margin-top: 22px;
+}
+
+.filtered-module-table {
+  width: 100%;
+  min-width: 1050px;
+}
+
+.filtered-module-table th,
+.filtered-module-table td {
+  padding: 8px 9px;
+  white-space: nowrap;
+}
+
+.filtered-module-table td {
+  font-size: 12px;
+}
+
+.filtered-module-table .summary-select-col input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
 .full-width-card-override {
   width: 100% !important;
-  max-width: 100% !important;
-  padding: 24px !important; /* Premium comfortable breathing room inside card padding constraints */
+  max-width: none !important;
+  min-width: 0;
+  padding: 20px !important;
 }
 
 /* --- Reorganized YES / NO side-by-side layout matrix grids --- */
@@ -1362,4 +1619,10 @@
 .metric-import-wrapper .btn-import-summary:hover {
   background: #0b6a91 !important;
   transform: translateY(-1px);
+}
+
+@media (max-width: 760px) {
+  .summary-project-list {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
 }
